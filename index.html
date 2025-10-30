@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Secret Garden — Visual Novel</title>
+  <style>
+    /* Reset */
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    html,body,#app{height:100%}
+    body{background:#111;color:#eee;overflow:hidden}
+
+    /* Fullscreen container */
+    .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+
+    /* Apology overlay before menu */
+    #apology{background:linear-gradient(180deg,rgba(0,0,0,.85),rgba(0,0,0,.95));z-index:60;flex-direction:column;padding:30px;text-align:center}
+    #apology .card{max-width:760px;background:rgba(255,255,255,0.03);padding:20px;border-radius:12px;border:1px solid rgba(255,255,255,0.04)}
+    #apology h1{font-size:26px;margin-bottom:8px}
+    #apology p{line-height:1.45;color:#ddd;margin-bottom:14px}
+    #apology button{padding:10px 16px;border-radius:8px;border:0;background:#7bb26a;color:#022;cursor:pointer}
+
+    /* Menu */
+    #menu{background-image:url('https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh1tu8TWD4DIhTMqYxSm8j1J_APhSKWdfLNrVLCrgEHBkZbyGkWlHXz91ZcD-ZSsnp4B7kFuS6eXVilZLQ8iOSZULTUhjQSBNOk3RAxT4AR8BhPsiyWrlMtkUP2mrsACvKW9B5U0lBuFqD3ExOBTaN6bicbihIMjww3jfYti55h6j0WUgcmxFRV5uh0ceVj/w945-h600-p-k-no-nu/unnamed.png');background-size:cover;background-position:center;filter:brightness(.65);z-index:50}
+    #menu .inner{backdrop-filter: blur(4px);background:linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.6));padding:40px;border-radius:14px;border:1px solid rgba(255,255,255,0.06);text-align:center}
+    #menu h1{font-family:"Playfair Display",serif;font-size:48px;color:#fff;margin-bottom:6px}
+    #menu .credit{font-size:12px;color:#ddd;margin-bottom:18px}
+    #menu button{padding:12px 22px;border-radius:10px;border:0;background:#e9d7ff;color:#111;font-weight:600;cursor:pointer}
+
+    /* Game area */
+    #game{background:#000;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;padding:20px}
+    .viewport{position:relative;height:100%;width:100%;display:flex;align-items:flex-end;justify-content:center}
+    .scene-bg{position:absolute;inset:0;background-size:cover;background-position:center;transition:opacity .6s ease;opacity:0}
+    .scene-bg.show{opacity:1}
+
+    /* sprites */
+    .sprite{position:absolute;bottom:6%;transition:opacity .6s ease,transform .6s ease;opacity:0;transform:translateY(10px)}
+    .sprite.show{opacity:1;transform:translateY(0)}
+    .sprite.left{left:6%} .sprite.center{left:50%;transform:translate(-50%,0)} .sprite.right{right:6%}
+    img.sprite-img{height:58vh;max-height:720px;user-select:none}
+
+    /* text box */
+    .textbox{position:relative;z-index:40;background:linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.75));border-radius:12px;padding:18px;border:1px solid rgba(255,255,255,0.04);max-width:1100px;margin:18px auto}
+    .textbox .name{font-weight:700;margin-bottom:6px;color:#ffd9e6}
+    .textbox .text{line-height:1.6;font-size:18px;color:#fff;min-height:64px}
+    .controls{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:10px}
+    .controls .hint{flex:1;color:#bbb;font-size:13px}
+    button.choice{padding:8px 12px;border-radius:8px;border:0;background:#c7e8ff;color:#012;cursor:pointer}
+
+    /* choice overlay */
+    .choices{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+
+    /* small footer */
+    .footer{position:absolute;left:10px;bottom:10px;color:#888;font-size:12px}
+
+    /* black final screen using image */
+    #finalBlack{display:none;align-items:center;justify-content:center;background-image:url('https://img.freepik.com/fotos-premium/moldura-feita-de-flores-brancas-em-fundo-preto-vista-superior-composicao-floral-arranjo-plano_565632-9020.jpg');background-size:cover}
+    #finalBlack.show{display:flex}
+    #finalBlack .text{background:rgba(0,0,0,0.6);padding:28px;border-radius:10px;color:#fff;font-size:20px}
+
+    @media (max-width:900px){
+      .sprite img{height:44vh}
+      #menu h1{font-size:36px}
+      .textbox .text{font-size:16px}
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Apology screen (first) -->
+  <div id="apology" class="screen">
+    <div class="card">
+      <h1>Aviso / Pedido de desculpas</h1>
+      <p>Este jogo usa artes geradas por IA. É um trabalho escolar e as imagens podem não ser perfeitas — peço desculpas por qualquer inconsistência. Obrigada pela compreensão.</p>
+      <button id="apologyOk">Continuar</button>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div id="menu" class="screen" style="display:none">
+    <div class="inner">
+      <h1>Secret Garden</h1>
+      <div class="credit">CRIADO POR: SARAH NOGUEIRA BARRIOS SANTOS</div>
+      <p style="color:#ddd;max-width:680px;margin:8px auto 18px;">Um visual novel curto feito a partir do roteiro que você enviou. Clique em Play para começar.</p>
+      <div style="display:flex;gap:10px;justify-content:center;align-items:center">
+        <button id="playBtn">PLAY</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game screen -->
+  <div id="game" class="screen" style="display:none">
+    <div class="viewport">
+      <!-- backgrounds -->
+      <div id="bg-room" class="scene-bg"></div>
+      <div id="bg-garden" class="scene-bg"></div>
+      <div id="bg-garden-night" class="scene-bg"></div>
+      <div id="bg-kitchen" class="scene-bg"></div>
+      <div id="bg-portal" class="scene-bg"></div>
+
+      <!-- sprites -->
+      <div id="sprite-mysterious" class="sprite right"><img class="sprite-img" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEigIAoZEhdD9Lk1Q1YWlCxnitqarkAk_yordN35l5WIbZoN25j-uS3WjTuKkGZoUsi8b9Y3eV27eGB6gZ6mJkcH15S3qzmYiWlFNB1BdUAARI0atxBlxmXPMmjnt53L2FX-I4jNxi6jIqRulk0CGsOEbtrZmnPavgfJb7c5Yvoayi6_akh29GTqceR5Ngg/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_12_03.png" alt="misteriosa"/></div>
+      <div id="sprite-mysterious-smile" class="sprite right"><img class="sprite-img" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhUm7eeNpMP0k5lOXB3uBrQIt1Svgoni_qjuLlTpEGeLEcmxpmVC0KMTY9d3aNn9gAbrMxIE1xo1x1OG7lEs4mCvyNU6U88O5nHO10dbinUWMf8YoSzZv5hqXmwDfCWnwuBe_QZ8hbMOtT6Nuy_LVH7IGj8R8NLVM9tLLH6Z-LjxdH3FdPn9iMg16OhW5M/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_12_13.png" alt="misteriosa_smile"/></div>
+      <div id="sprite-mysterious-angry" class="sprite right"><img class="sprite-img" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjiM7jvdVz6oiO7EGah69Ap-F-GSUP5piQa8tuFbGhIg8ZHYMWb89wieqrOlYB4m4YjGsWJLK8S7Ko88C9t25UTWvdVQlJnHvvmgbM3HcFXbTmJ9FTdP-7YMDv1Vtny73aDGSi_1zDeplmuRVMw39bnh9AkxHiA92lM0DV4f0Bd6Lpfs9DhNv7n3NeZghI/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_12_17.png" alt="misteriosa_angry"/></div>
+      <div id="sprite-mysterious-angry2" class="sprite right"><img class="sprite-img" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgSY7MT559NsqTwdGqxn9vZPvk09DZPIuWspP2RbmrupylmYPNTObbjd9ojdXrJ1pyXypm8SVtDuCrkEaH0a7dkqspV8T7eMVB7e_aU8UCrYXPoirjd9cq0QgsTpFzq0P0j8QMnglpXH-kkz4LWZTn01WyE9G1mDM_JsfW4XTNp0fodHjTqqkYhiGLKWL8/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_12_20.png" alt="misteriosa_angry2"/></div>
+      <div id="sprite-mysterious-surprise" class="sprite right"><img class="sprite-img" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiee7yned0e1kmQlBfLNS3hgex6DJorhuXGwA_myxYqbaFR3NbwdqVnEogXY2o9p30nVHelJu8sMsDxSG9aO4CZa998lj9XcEEXE_ASuXCV1UbJzwvxCRNkE9gOeC3B521hHhhfCa-_X0bbWYf4VSIIdQe8oOtYQHsVDSCWBv5lHhPpjHx8G-cTQWz2nq4/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_12_24.png" alt="misteriosa_surprise"/></div>
+
+      <div id="sprite-mom" class="sprite left"><img class="sprite-img" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjYDnXkKv2wS0FNnpmS0xXVcFEsWZ8MSIqpfGV2AuTyYA9_WP8GQUsyHXEPqFNtpPPic_VLyYdcVkyb95qQLZFlLi5O67_mf46tXUf6RkBWyV5uYb4cwfwcs6a_lyx7ieFLvjSTCRIEEOYAhe-qkSU0Dq6nm3vAHTJ7mbo8vItzEaP0glI3kfgbWzj36To/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_36_52.png" alt="mãe"/></div>
+      <div id="sprite-mom-surprise" class="sprite left"><img class="sprite-img" src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhYT97YZ_EuUtlvteUtFpiQOCu5oRO-fcnyrQ7jUCfYKTr85KyOT5eowSvgPIm1Dl9z5Mx0ls_XP2ZLyVFkRcMbP3eHZsEu_xiDcFEkAipYNO8LrB7uvU6rgF-Q6MnCvhb86apmQfAhe3-SyX5okDfBfd5BSKO0BnMsAKW_eJmlX9y6C1i3hm4ErciRt94/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_44_11.png" alt="mãe_surpresa"/></div>
+
+      <!-- text box -->
+      <div class="textbox" id="textbox">
+        <div class="name" id="charName">—</div>
+        <div class="text" id="text">Clique em PLAY para começar.</div>
+        <div class="choices" id="choices"></div>
+        <div class="controls">
+          <div class="hint">Pressione Espaço ou clique no texto para avançar</div>
+          <button id="skip" class="choice">Pular para menu</button>
+        </div>
+      </div>
+
+      <div class="footer">Secret Garden — Visual Novel</div>
+    </div>
+  </div>
+
+  <!-- final black screen -->
+  <div id="finalBlack" class="screen">
+    <div class="text" id="finalText"></div>
+  </div>
+
+  <script>
+    // assets mapping
+    const ASSETS = {
+      bgRoom: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgCozAci4xH1kKayifpd52AR1CiLHNlFjM7kxm_1I0_qCU0pjKqNraYAEQrnRCO45ox2GsIp2XrAhAow-_x5sSVkzt3_zLxPjgYvCKD16l0gD8ERixPLu1Af-pkcssJqU2rVO0ONPM9HbyE2ccM1oS8fBML-epBmPr6nmrEFK6Xb4X-H4PbgcM7ZRGdB4Q/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_26_29.png',
+      bgGarden: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhjAPH_SYsLUW1gAYI-c1ZcHJGjkkZ2i6JLlI0MBzj0pvU0sewf_VHljKJCDvLtd7HVS35D68dkhPveJVR7_Vf6WnkE6l4qqyEt5TCQvpIG5LBBWoMeHic2patFj-sSv0RE5zXvrM1OrsOOfGqhkuEhZ52l-FdfpnPvVik5vXmvCHTVupuhWB2008ESBMY/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_30_01.png',
+      bgGardenNight: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg28zemjDDBufA3rWB9oyCXxkdjHiEcY8DowhCYogtaHBmDYR59TNj07VmgZwqMXf6p0-U0pvKPcqjYu8f3dRJhOJusHHLsyvI1pfIl-bFRjfaNKlbMRDhFeIJjIXB1kXUd1HKh54EqQ7RBLzEe0ZoCniTurGI38Ss0QVsblDcZYsHiPozUJV3tbiEK-uk/s320/ChatGPT%20Image%2022%20de%20out.%20de%202025,%2015_34_29.png',
+      bgKitchen: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiionO9ORMjyhlbfZeuxxLA3Tz-DcE6IVCg73SACPlMBtzbDzmPMhR8SRy04wbj-U_UI6m7wnU6Syczax-I1NxZeiJzubQA-iZFt9DuyAoAKPRS7GB77RkEugMNndqoshDWzWODJqGek_rdV0ebPdCvse23sFuCUEQ5O6ALmPxprRsGhk5Hs30n-A1PMMs3/w945-h600-p-k-no-nu/unnamed.png',
+      bgPortal: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh1tu8TWD4DIhTMqYxSm8j1J_APhSKWdfLNrVLCrgEHBkZbyGkWlHXz91ZcD-ZSsnp4B7kFuS6eXVilZLQ8iOSZULTUhjQSBNOk3RAxT4AR8BhPsiyWrlMtkUP2mrsACvKW9B5U0lBuFqD3ExOBTaN6bicbihIMjww3jfYti55h6j0WUgcmxFRV5uh0ceVj/w945-h600-p-k-no-nu/unnamed.png'
+    }
+
+    // DOM refs
+    const apology = document.getElementById('apology')
+    const apologyOk = document.getElementById('apologyOk')
+    const menu = document.getElementById('menu')
+    const playBtn = document.getElementById('playBtn')
+    const game = document.getElementById('game')
+    const bgRoom = document.getElementById('bg-room')
+    const bgGarden = document.getElementById('bg-garden')
+    const bgGardenNight = document.getElementById('bg-garden-night')
+    const bgKitchen = document.getElementById('bg-kitchen')
+    const bgPortal = document.getElementById('bg-portal')
+    const spriteM = document.getElementById('sprite-mysterious')
+    const spriteMsm = document.getElementById('sprite-mysterious-smile')
+    const spriteMang = document.getElementById('sprite-mysterious-angry')
+    const spriteMang2 = document.getElementById('sprite-mysterious-angry2')
+    const spriteMsur = document.getElementById('sprite-mysterious-surprise')
+    const spriteMom = document.getElementById('sprite-mom')
+    const spriteMomSur = document.getElementById('sprite-mom-surprise')
+    const textbox = document.getElementById('textbox')
+    const charNameEl = document.getElementById('charName')
+    const textEl = document.getElementById('text')
+    const choicesEl = document.getElementById('choices')
+    const skipBtn = document.getElementById('skip')
+    const finalBlack = document.getElementById('finalBlack')
+    const finalText = document.getElementById('finalText')
+
+    // set backgrounds
+    bgRoom.style.backgroundImage = `url(${ASSETS.bgRoom})`
+    bgGarden.style.backgroundImage = `url(${ASSETS.bgGarden})`
+    bgGardenNight.style.backgroundImage = `url(${ASSETS.bgGardenNight})`
+    bgKitchen.style.backgroundImage = `url(${ASSETS.bgKitchen})`
+    bgPortal.style.backgroundImage = `url(${ASSETS.bgPortal})`
+
+    // initial hide sprites
+    const allSprites = [spriteM, spriteMsm, spriteMang, spriteMang2, spriteMsur, spriteMom, spriteMomSur]
+    allSprites.forEach(s=>s.classList.remove('show'))
+
+    // Scenes data (abridged into nodes with text and choices)
+    let playerName = ''
+    let state = {scene:'intro',index:0}
+
+    const scenes = {
+      intro: [
+        {type:'text',name:'',text:`Depois de muito tempo me acostumando na cidade, finalmente fazendo amigas, finalmente me adaptando à nova casa e ao meu novo quarto, meu pai recebe uma promoção no emprego e precisamos nos mudar, de novo…`},
+        {type:'text',name:'',text:`Não que eu não esteja feliz por ele — ele realmente merece isso —, mas já se tornou chato e cansativo.`},
+        {type:'text',name:'',text:`Sempre que consigo me firmar em um lugar, construir memórias, é como se alguém apagasse tudo de repente.`},
+        {type:'input',name:'playerName',text:`Qual o seu nome? (Personagem feminina)`},
+        {type:'text',name:'',text:`Eu, {player}, ajudo a descarregar as coisas da mudança — afinal, temos um caminhão inteiro com roupas e móveis para arrumar dentro da nossa nova casa.`},
+        {type:'text',name:'',text:`Mas ao olhar no jardim, eu vejo uma porta. Ela é diferente e única, cheia de flores, com uma moldura retorcida como se tivesse brotado da própria terra. Ela parece… viva. Mas, quando pisquei, já não estava mais lá.`},
+        {type:'text',name:'',text:`Isso é… estranho, pra dizer o mínimo. Eu logo chego à cozinha e vejo minha mãe arrumando os armários.`},
+        {type:'choice',text:'O que você faz?',choices:[
+          {id:'leave_quiet',text:'Vou embora e não falo nada.'},
+          {id:'tell_mom',text:'Conto a ela o que eu vi.'}
+        ]}
+      ],
+
+      leave_quiet:[
+        {type:'text',text:`Eu penso em contar para ela sobre essa porta misteriosa, mas duvido que minha mãe acreditaria em mim. Afinal, quem iria acreditar em uma porta mágica no nosso jardim? É melhor eu não dizer nada mesmo…`},
+        {type:'goto',to:'after_choice'}
+      ],
+
+      tell_mom:[
+        {type:'text',text:`Eu vou até ela e, com um olhar confuso, mas curioso, pergunto:`},
+        {type:'text',text:`— Mãe, você viu aquela porta estranha no jardim? Uma cheia de flores e tals…`},
+        {type:'text',text:`— ${'{player}'}, minha filha, de que porta você tá falando? Não tem porta alguma lá no jardim — ela diz, achando estranha minha pergunta.`},
+        {type:'text',text:`— Tem sim! Eu vi uma porta, só que quando olhei novamente ela tinha sumido…`},
+        {type:'text',text:`— Você deve ter visto rápido e achado que tinha alguma porta ou coisa assim, porque eu te garanto que não tem nenhuma porta lá — diz ela, com um tom calmo.`},
+        {type:'text',text:`Óbvio que ela iria dizer que era coisa da minha cabeça. Era de se esperar…`},
+        {type:'text',text:`— Então tá bom… — falo ainda desconfiada.`},
+        {type:'goto',to:'after_choice'}
+      ],
+
+      after_choice:[
+        {type:'text',text:`Subo as escadas até meu novo quarto. Ele é espaçoso, mas ainda falta organização, falta alma.`},
+        {type:'text',text:`Enquanto ajeito minhas coisas, não consigo parar de pensar naquela porta. Um portal que aparece e desaparece…`},
+        {type:'text',text:`Mas estou exausta, e por agora não faz sentido insistir. Melhor dormir. Amanhã, talvez, eu descubra se ela realmente estava lá… ou se tudo não passou de imaginação.`},
+        {type:'text',text:`A noite passa silenciosa, como se a nova casa ainda estivesse se ajustando à nossa presença.`},
+        {type:'text',text:`Quando abro os olhos, o quarto já está iluminado pela claridade suave da manhã.`},
+        {type:'text',text:`Desço as escadas ainda meio sonolenta e encontro minha mãe já posta à mesa, servindo pão e algumas frutas.`},
+        {type:'text',text:`— Bom dia, {player}. Dormiu bem? — ela pergunta, com aquele sorriso costumeiro de quem tenta manter tudo no lugar.`},
+        {type:'text',text:`— Dormi sim — respondo, sorrindo de volta, então olho em volta e percebo que falta alguém.`},
+        {type:'text',text:`— Cadê o pai? Ele não vai tomar café com a gente?`},
+        {type:'text',text:`Ela suspira, ajeitando a xícara na mesa. — Seu pai já saiu. Tinha uma reunião cedo.`},
+        {type:'text',text:`Pouco tempo depois, coloco a mochila nas costas e sigo para a escola.`},
+        {type:'text',text:`(Depois de um tempo…)`},
+        {type:'text',text:`Volto para casa pelo mesmo caminho, observando as casas vizinhas e os jardins cuidadosamente enfeitados. Ao abrir o portão de casa, meus olhos são atraídos outra vez pelo fundo do quintal. E lá está ela.`},
+        {type:'text',text:`A porta misteriosa. A mesma moldura viva, estranha, que parecia ter desaparecido ontem. Só que, desta vez… parece ainda mais nítida, como se estivesse esperando por mim.`},
+        {type:'text',text:`Meu coração acelera, e por um instante não sei se devo chamar alguém, ignorar… ou apenas continuar observando.`},
+        {type:'choice',text:'O que você faz?',choices:[
+          {id:'deny',text:'Se nega que essa porta realmente é real e acha que está vendo coisas.'},
+          {id:'approach',text:'Decide se aproximar e abrir a porta.'}
+        ]}
+      ],
+
+      deny:[
+        {type:'text',text:`Eu respiro fundo, fecho os olhos e balanço a cabeça. — Não… não pode ser. É só a mudança mexendo comigo. Cansaço, estresse… qualquer coisa, menos uma porta mágica no quintal.`},
+        {type:'text',text:`Dou as costas, tentando ignorar o frio que percorre meu corpo. Mas, no fundo, algo dentro de mim sabe que estou mentindo pra mim mesma.`},
+        {type:'text',text:`Nos dias seguintes, continuo vivendo minha rotina — colégio, estudos, minha mãe sempre preocupada, e meu pai… ausente, como sempre. Mas toda vez que passo pelo jardim, lá está ela. A porta coberta de flores. E cada vez parece mais… real.`},
+        {type:'text',text:`Aos poucos, começo a me sentir presa não dentro dela, mas fora dela. Como se tivesse escolhido a pior das prisões: a dúvida eterna.`},
+        {type:'final',id:'negation',text:`Final da Negação: Você nunca entrou no portal. A cada dia que você vê essa porta, parece enlouquecer um pouco mais. \n\n"Parabéns. Em vez de viver um destino estranho… você só perdeu a cabeça. Faça terapia, mana."`}
+      ],
+
+      approach:[
+        {type:'text',text:`Ao atravessar o portal, sinto imediatamente que não deveria estar aqui. O ar é denso, quase viscoso, como se cada respiração fosse puxada de mim à força.`},
+        {type:'text',text:`O cheiro não é de grama ou terra molhada… mas de flores desconhecidas, com um perfume doce demais, sufocante, quase venenoso.`},
+        {type:'text',text:`O jardim é vasto, iluminado apenas por uma lua que não parece a mesma do mundo real. As árvores se erguem como colunas escuras, e entre seus galhos vejo pequenas luzes flutuando, como vaga-lumes que me observam em silêncio.`},
+        {type:'text',text:`E então… eu a vejo. No centro da clareira, uma estranha se destaca, como se o espaço inteiro tivesse se moldado apenas para emoldurá-la.`},
+        {type:'text',text:`Seu corpo é delicado, mas sua presença é sufocante. A pele clara contrasta com detalhes metálicos — piercings que brilham com o reflexo frio da lua.`},
+        {type:'text',text:`Os cabelos, de um rosa pálido e quase apagado, caem em tranças presas por ornamentos incomuns.`},
+        {type:'text',text:`As roupas escuras envolvem seu corpo com camadas pesadas, adornadas por pérolas pálidas e um crucifixo torto. O que mais me prende são os olhos dela. Eles não são apenas bonitos: são fundos, carregados de algo que não consigo nomear.`},
+        {type:'choice',text:'O que você faz?',choices:[
+          {id:'walk',text:'Caminhar até a estranha.'},
+          {id:'stay',text:'Permanecer parada, observando-a de longe.'}
+        ]}
+      ],
+
+      walk:[
+        {type:'text',text:`Meus pés avançam quase sem pensar. Cada passo faz o chão ranger como se estivesse vivo. Quando finalmente me aproximo, ela curva levemente a cabeça para o lado e abre um sorriso pequeno, discreto… mas frio demais para ser apenas gentileza.`},
+        {type:'text',text:`Com uma voz suave, quase um sussurro, ela fala: — Então você finalmente chegou… eu estava esperando.`},
+        {type:'final',id:'meet',text:`Você conheceu a Estranha. O capítulo termina com esse encontro misterioso, abrindo caminho para o próximo capítulo.`}
+      ],
+
+      stay:[
+        {type:'text',text:`Congelo. Minhas pernas não obedecem, e fico apenas encarando-a de longe. Mas os olhos dela já estavam fixos em mim desde o início — como se não houvesse lugar para se esconder.`},
+        {type:'text',text:`Então, sem pressa, aquela moça estranha começa a andar em minha direção. Seus pés não fazem barulho algum, é como se flutuasse sobre as flores.`},
+        {type:'text',text:`Quando para diante de mim, tão próxima que sinto seu perfume doce e sufocante, ela sorri da mesma forma enigmática. — Então você finalmente chegou… eu estava esperando.`},
+        {type:'final',id:'meet2',text:`Você ficou imóvel enquanto ela veio até você — o capítulo termina com a mesma frase enigmática.`}
+      ]
+
+    }
+
+    // helpers to show/hide elements
+    function showMenu(){apology.style.display='none';menu.style.display='flex'}
+    function startGame(){menu.style.display='none';game.style.display='flex';enterScene('after_choice',0)}
+
+    apologyOk.addEventListener('click',()=>{ showMenu() })
+    playBtn.addEventListener('click',()=>{
+      // ask for name via prompt before starting
+      playerName = prompt('Digite o nome da personagem (ou deixe em branco para usar "User"):','') || ''
+      if(!playerName) playerName = 'User'
+      startGame()
+    })
+
+    // keyboard controls
+    document.addEventListener('keydown',e=>{
+      if(game.style.display==='flex' && (e.code==='Space' || e.key===' ')) advance()
+      if(e.key==='Escape'){ // quick back to menu
+        menu.style.display='flex';game.style.display='none'
+      }
+    })
+
+    skipBtn.addEventListener('click',()=>{menu.style.display='flex';game.style.display='none'})
+
+    // text engine
+    let currentQueue = []
+    let typing = false
+
+    function enterScene(sceneName,startIndex=0){
+      state.scene = sceneName; state.index = startIndex
+      currentQueue = scenes[sceneName] ? [...scenes[sceneName]] : []
+      // set default backgrounds
+      setBgForScene(sceneName)
+      showNext()
+    }
+
+    function setBgForScene(sceneName){
+      // simple mapping
+      [bgRoom,bgGarden,bgGardenNight,bgKitchen,bgPortal].forEach(b=>b.classList.remove('show'))
+      allSprites.forEach(s=>s.classList.remove('show'))
+      if(['intro','after_choice'].includes(sceneName)) bgRoom.classList.add('show')
+      if(sceneName==='after_choice' || sceneName==='deny' || sceneName==='intro') bgGarden.classList.add('show')
+      if(['approach','walk','stay'].includes(sceneName)) bgPortal.classList.add('show')
+      if(sceneName==='deny') bgGardenNight.classList.add('show')
+      if(sceneName==='tell_mom' || sceneName==='leave_quiet') bgKitchen.classList.add('show')
+    }
+
+    function showNext(){
+      if(!currentQueue || currentQueue.length===0) return
+      const node = currentQueue.shift()
+      if(!node) return
+      if(node.type==='text'){
+        displayText(node)
+      }else if(node.type==='input'){
+        promptForInput(node)
+      }else if(node.type==='choice'){
+        showChoices(node)
+      }else if(node.type==='goto'){
+        enterScene(node.to)
+      }else if(node.type==='final'){
+        showFinal(node)
+      }
+    }
+
+    function displayText(node){
+      const name = node.name||''
+      charNameEl.textContent = name || ''
+      let text = node.text.replace(/{player}/g,playerName)
+      // show sprites based on keywords to add emotion
+      handleEmoteTriggers(text)
+      textEl.textContent = ''
+      // simple typewriter (fast)
+      let i = 0
+      typing = true
+      const speed = 8
+      function step(){
+        if(i<=text.length){ textEl.textContent = text.slice(0,i); i++; requestAnimationFrame(step) } else { typing=false; showNextChoicesIfAny() }
+      }
+      step()
+    }
+
+    function promptForInput(node){
+      const answer = prompt(node.text,'') || ''
+      if(node.name==='playerName'){
+        playerName = answer || 'User'
+      }
+      showNext()
+    }
+
+    function showChoices(node){
+      choicesEl.innerHTML = ''
+      node.choices.forEach(c=>{
+        const btn = document.createElement('button')
+        btn.className='choice'
+        btn.textContent = c.text
+        btn.addEventListener('click',()=>{ handleChoice(c.id) })
+        choicesEl.appendChild(btn)
+      })
+    }
+
+    function handleChoice(id){
+      choicesEl.innerHTML = ''
+      // map choices to scenes
+      const map = {
+        leave_quiet:'leave_quiet', tell_mom:'tell_mom', deny:'deny', approach:'approach', walk:'walk', stay:'stay'
+      }
+      const target = map[id]
+      if(target) enterScene(target)
+    }
+
+    function showNextChoicesIfAny(){
+      // if next node is choice, show; else advance
+      const peek = currentQueue[0]
+      if(!peek) return
+      if(peek.type==='choice'){ showNext() }
+    }
+
+    function advance(){
+      if(typing) return
+      // if there are visible choices do nothing
+      if(choicesEl.children.length>0) return
+      // else show next
+      if(currentQueue.length>0) showNext()
+    }
+
+    // emote triggers based on text content
+    function handleEmoteTriggers(text){
+      // simple keywords
+      const lower = text.toLowerCase()
+      // reset
+      allSprites.forEach(s=>s.classList.remove('show'))
+      if(lower.includes('mãe') || lower.includes('cozinha')){
+        spriteMom.classList.add('show')
+      }
+      if(lower.includes('porta') || lower.includes('jardim')){
+        // show portal bg and mystery sprite faintly
+        spriteM.classList.add('show')
+      }
+      if(lower.includes('sorriso') || lower.includes('sorriso pequeno')){
+        spriteMsm.classList.add('show')
+      }
+      if(lower.includes('piercings') || lower.includes('brava') || lower.includes('frio demais')){
+        spriteMang.classList.add('show')
+      }
+      if(lower.includes('surpresa') || lower.includes('olhos') ){
+        spriteMsur.classList.add('show')
+      }
+    }
+
+    function showFinal(node){
+      game.style.display='none'
+      finalBlack.classList.add('show')
+      finalText.textContent = node.text
+    }
+
+    // Start state: apology visible
+    // Preload images
+    function preload(urls){urls.forEach(u=>{const i=new Image();i.src=u})}
+    preload(Object.values(ASSETS).concat([
+      spriteM.querySelector('img').src, spriteMsm.querySelector('img').src, spriteMang.querySelector('img').src, spriteMsur.querySelector('img').src, spriteMom.querySelector('img').src
+    ]))
+
+    // small UX: clicking text advances
+    textEl.addEventListener('click',()=>{ advance() })
+
+    // expose enterScene for starting later
+    window.enterScene = enterScene
+
+  </script>
+</body>
+</html>
